@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mujina</title>
+<style>
+  :root {
+    color-scheme: dark light;
+    --bg: #0e0f12;
+    --fg: #e6e7ea;
+    --muted: #888c93;
+    --card: #1a1c20;
+    --card-border: #2a2d33;
+    --accent: #4cb;
+    --ok: #2a7;
+    --warn: #ea4;
+    --err: #c44;
+    --hl: #8881;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f7f8fa; --fg: #1a1c20; --muted: #61656b; --card: #fff; --card-border: #e1e3e8; --hl: #0001; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+  body { display: grid; grid-template-rows: auto 1fr auto; min-height: 100vh; }
+
+  header {
+    padding: .8rem 1rem;
+    border-bottom: 1px solid var(--card-border);
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.05rem; margin: 0; letter-spacing: .03em; }
+  header h1 .v { color: var(--muted); font-weight: normal; font-size: .8rem; margin-left: .3rem; }
+  .status-pill { font-size: .75rem; padding: .15rem .55rem; border-radius: 1rem; background: var(--hl); color: var(--muted); }
+  .status-pill.ok { background: #2a72; color: var(--ok); }
+  .status-pill.err { background: #c442; color: var(--err); }
+  .header-meta { margin-left: auto; font-size: .75rem; color: var(--muted); display: flex; gap: 1.2rem; flex-wrap: wrap; }
+  .header-meta b { color: var(--fg); font-weight: normal; font-family: var(--mono); font-size: .75rem; }
+
+  main { padding: 1rem; display: grid; grid-template-columns: 1fr 24rem; gap: 1rem; min-height: 0; }
+  @media (max-width: 64rem) { main { grid-template-columns: 1fr; } }
+  .panes { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+  .logs-pane { display: flex; flex-direction: column; min-height: 0; }
+
+  .top-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .75rem; }
+  .metric {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: .5rem;
+    padding: .85rem 1rem;
+  }
+  .metric .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: .25rem; }
+  .metric .value { font-size: 1.35rem; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .metric .value .unit { font-size: .85rem; color: var(--muted); margin-left: .2rem; }
+  .metric .sub { font-size: .7rem; color: var(--muted); margin-top: .2rem; font-family: var(--mono); }
+  .metric.state .value.paused { color: var(--err); }
+  .metric.state .value.heating { color: var(--ok); }
+  .metric.state .value.ready { color: var(--accent); }
+
+  .actions {
+    display: flex; gap: .5rem; flex-wrap: wrap; align-items: center;
+    background: var(--card); border: 1px solid var(--card-border); border-radius: .5rem;
+    padding: .65rem .85rem;
+  }
+  .actions .label { font-size: .75rem; color: var(--muted); margin-right: .35rem; }
+  button {
+    font: inherit; padding: .4rem .9rem; border-radius: .375rem;
+    border: 1px solid var(--card-border); background: transparent; color: inherit;
+    cursor: pointer;
+  }
+  button:hover { background: var(--hl); }
+  button.primary { background: var(--ok); color: white; border-color: var(--ok); }
+  button.danger { background: var(--err); color: white; border-color: var(--err); }
+  button[disabled] { opacity: .4; cursor: not-allowed; }
+
+  section h2 {
+    font-size: .8rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+    margin: 0 0 .5rem; font-weight: 500;
+  }
+  section h2 .count { background: var(--hl); padding: .05rem .4rem; border-radius: .25rem; margin-left: .35rem; font-family: var(--mono); }
+
+  .board, .source {
+    background: var(--card); border: 1px solid var(--card-border); border-radius: .5rem;
+    padding: .9rem 1rem; margin-bottom: .6rem;
+  }
+  .board h3, .source h3 {
+    font-size: .95rem; margin: 0 0 .5rem; font-weight: 500;
+    display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap;
+  }
+  .board h3 .model { color: var(--muted); font-size: .8rem; }
+  .board h3 .serial { color: var(--muted); font-size: .7rem; font-family: var(--mono); }
+
+  .subgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .75rem; }
+  .subbox { border: 1px solid var(--card-border); border-radius: .375rem; padding: .55rem .65rem; background: var(--bg); }
+  .subbox h4 { font-size: .65rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 0 0 .35rem; font-weight: 500; }
+  .subbox table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: .8rem; }
+  .subbox th { font-weight: normal; color: var(--muted); text-align: left; padding-right: .5rem; font-size: .7rem; }
+  .subbox td { padding: .15rem 0; font-variant-numeric: tabular-nums; }
+  .subbox td.r { text-align: right; }
+  .subbox td.muted, .subbox .muted { color: var(--muted); }
+  .subbox .empty { color: var(--muted); font-style: italic; font-size: .8rem; padding: .2rem 0; }
+
+  .source p { margin: .25rem 0; font-size: .85rem; }
+  .source .url { font-family: var(--mono); color: var(--muted); word-break: break-all; font-size: .8rem; }
+  .source .diff { font-family: var(--mono); }
+
+  .logs-pane h2 { display: flex; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+  .logs-pane h2 .grow { flex: 1; }
+  .logs-pane input[type="search"] {
+    font: inherit; padding: .3rem .5rem; border-radius: .25rem;
+    border: 1px solid var(--card-border); background: var(--bg); color: inherit;
+    width: 10rem; font-size: .8rem;
+  }
+  .logs-pane label.cb { display: inline-flex; align-items: center; gap: .25rem; font-size: .75rem; color: var(--muted); user-select: none; }
+  .log-box {
+    flex: 1;
+    background: var(--card); border: 1px solid var(--card-border); border-radius: .5rem;
+    padding: .5rem .65rem; overflow: auto; max-height: 80vh;
+    font-family: var(--mono); font-size: .72rem; line-height: 1.35;
+  }
+  .log-line { padding: .05rem 0; word-break: break-word; white-space: pre-wrap; border-left: 2px solid transparent; padding-left: .35rem; }
+  .log-line.INFO  { border-color: #4488ee44; }
+  .log-line.WARN  { border-color: var(--warn); color: var(--warn); }
+  .log-line.ERROR { border-color: var(--err); color: var(--err); }
+  .log-line.DEBUG { color: var(--muted); }
+  .log-line.TRACE { color: var(--muted); opacity: .7; }
+
+  footer { padding: .4rem 1rem; border-top: 1px solid var(--card-border); font-size: .7rem; color: var(--muted); display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  footer .right { color: var(--muted); font-family: var(--mono); }
+
+  .raw-toggle { font-size: .75rem; color: var(--muted); cursor: pointer; user-select: none; margin-top: .5rem; display: inline-block; }
+  .raw-toggle:hover { color: var(--fg); }
+  .raw-json { display: none; margin-top: .5rem; background: var(--bg); border: 1px solid var(--card-border); border-radius: .375rem; padding: .5rem .65rem; font-family: var(--mono); font-size: .7rem; max-height: 16rem; overflow: auto; white-space: pre; }
+  .raw-json.open { display: block; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>mujina <span class="v" id="v"></span></h1>
+    <span id="conn" class="status-pill">connecting…</span>
+    <div class="header-meta">
+      <span>api → <b id="api-url">…</b></span>
+      <span>log → <b id="log-path">…</b></span>
+    </div>
+  </header>
+
+  <main>
+    <div class="panes">
+      <section>
+        <div class="top-grid">
+          <div class="metric"><div class="label">State</div><div class="value" id="state">—</div><div class="sub" id="state-sub">&nbsp;</div></div>
+          <div class="metric"><div class="label">Hashrate</div><div class="value" id="hashrate">—</div><div class="sub" id="hashrate-sub">&nbsp;</div></div>
+          <div class="metric"><div class="label">Uptime</div><div class="value" id="uptime">—</div><div class="sub" id="uptime-sub">&nbsp;</div></div>
+          <div class="metric"><div class="label">Shares submitted</div><div class="value" id="shares">—</div></div>
+          <div class="metric"><div class="label">Best difficulty</div><div class="value" id="bestdiff">—</div></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="actions">
+          <span class="label">controls</span>
+          <button id="btn-resume" class="primary">▶ heat_on</button>
+          <button id="btn-pause"  class="danger">⏸ heat_off</button>
+          <span class="label" id="ctrl-status">&nbsp;</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Boards <span class="count" id="boards-count">0</span></h2>
+        <div id="boards-list"></div>
+      </section>
+
+      <section>
+        <h2>Sources <span class="count" id="sources-count">0</span></h2>
+        <div id="sources-list"></div>
+      </section>
+
+      <section>
+        <span class="raw-toggle" id="raw-toggle">show raw /api/v0/miner</span>
+        <pre class="raw-json" id="raw-json"></pre>
+      </section>
+    </div>
+
+    <div class="logs-pane">
+      <h2>
+        <span>Logs</span>
+        <span class="count" id="logs-count">0</span>
+        <span class="grow"></span>
+        <input id="log-filter" type="search" placeholder="filter…">
+        <label class="cb"><input type="checkbox" id="log-follow" checked> follow</label>
+      </h2>
+      <div class="log-box" id="log-box"></div>
+    </div>
+  </main>
+
+  <footer>
+    <span>mujina-ui</span>
+    <span class="right" id="updated">—</span>
+  </footer>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const conn = $("#conn");
+
+const POLL_MS = 1500;
+const LOG_MAX = 5000; // cap rendered lines
+
+const STATE = {
+  filter: "",
+  follow: true,
+  lines: [],   // {sev, text}
+};
+
+// --- formatting helpers ---
+function fmtHashrate(hps) {
+  if (hps == null) return ["—", ""];
+  if (hps < 1e3)  return [hps.toFixed(0), "H/s"];
+  if (hps < 1e6)  return [(hps/1e3).toFixed(2), "kH/s"];
+  if (hps < 1e9)  return [(hps/1e6).toFixed(2), "MH/s"];
+  if (hps < 1e12) return [(hps/1e9).toFixed(2), "GH/s"];
+  if (hps < 1e15) return [(hps/1e12).toFixed(2), "TH/s"];
+  return [(hps/1e15).toFixed(2), "PH/s"];
+}
+function fmtDuration(secs) {
+  if (secs == null) return "—";
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+function fmtNum(n) {
+  if (n == null) return "—";
+  return n.toLocaleString();
+}
+function fmtFixed(n, digits=1) {
+  if (n == null) return "—";
+  return Number(n).toFixed(digits);
+}
+function muted(v) { return v == null ? "<span class='muted'>—</span>" : v; }
+function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstChild; }
+function escapeHtml(s) { return String(s).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+
+// --- state render ---
+function deriveStateLabel(snap) {
+  if (snap?.paused) return ["paused", "paused"];
+  if ((snap?.hashrate||0) > 0) return ["heating", "heating"];
+  return ["ready", "ready"];
+}
+
+function render(snap) {
+  const stateEl = $("#state");
+  const [label, cls] = deriveStateLabel(snap);
+  stateEl.textContent = label;
+  stateEl.className = "value " + cls;
+  $("#state-sub").innerHTML = snap?.paused ? "PATCH /miner paused" : "&nbsp;";
+
+  const [hr, unit] = fmtHashrate(snap?.hashrate);
+  $("#hashrate").innerHTML = `${hr}<span class="unit">${unit}</span>`;
+  $("#hashrate-sub").textContent = snap?.hashrate ? `${snap.hashrate.toLocaleString()} H/s` : "";
+
+  $("#uptime").textContent = fmtDuration(snap?.uptime_secs);
+  $("#uptime-sub").textContent = snap?.uptime_secs != null ? `${snap.uptime_secs} s` : "";
+
+  $("#shares").textContent = fmtNum(snap?.shares_submitted);
+  $("#bestdiff").textContent = fmtNum(snap?.best_difficulty);
+
+  renderBoards(snap?.boards || []);
+  renderSources(snap?.sources || []);
+  $("#raw-json").textContent = JSON.stringify(snap, null, 2);
+  $("#updated").textContent = "last updated " + new Date().toLocaleTimeString();
+}
+
+function renderBoards(boards) {
+  $("#boards-count").textContent = boards.length;
+  const list = $("#boards-list");
+  list.innerHTML = "";
+  if (boards.length === 0) {
+    list.appendChild(el(`<div class="board"><div class="muted">no boards reported by mujina</div></div>`));
+    return;
+  }
+  for (const b of boards) {
+    const card = el(`<div class="board"></div>`);
+    const h = el(`<h3>
+      <span>${escapeHtml(b.name)}</span>
+      <span class="model">${escapeHtml(b.model || "")}</span>
+      <span class="serial">${escapeHtml(b.serial || "")}</span>
+    </h3>`);
+    card.appendChild(h);
+
+    // Aggregate per-board hashrate (sum across threads)
+    const totalHr = (b.threads || []).reduce((acc, t) => acc + (t.hashrate || 0), 0);
+    const totalPower = (b.powers || []).reduce((acc, p) => acc + (p.power_w || 0), 0);
+
+    const sub = document.createElement('div');
+    sub.className = 'subgrid';
+    sub.appendChild(threadsBox(b.threads || [], totalHr));
+    sub.appendChild(temperaturesBox(b.temperatures || []));
+    sub.appendChild(fansBox(b.fans || []));
+    sub.appendChild(powersBox(b.powers || [], totalPower));
+    card.appendChild(sub);
+    list.appendChild(card);
+  }
+}
+
+function threadsBox(threads, total) {
+  const [hr, unit] = fmtHashrate(total);
+  const box = el(`<div class="subbox"><h4>Threads · total ${hr} ${unit}</h4></div>`);
+  if (threads.length === 0) { box.appendChild(el(`<div class="empty">no threads</div>`)); return box; }
+  const table = el(`<table><tr><th>name</th><th class="r">hashrate</th><th class="r">active</th></tr></table>`);
+  for (const t of threads) {
+    const [v, u] = fmtHashrate(t.hashrate);
+    const active = t.is_active ? "✓" : `<span class="muted">·</span>`;
+    table.appendChild(el(`<tr><td>${escapeHtml(t.name)}</td><td class="r">${v} <span class="muted">${u}</span></td><td class="r">${active}</td></tr>`));
+  }
+  box.appendChild(table); return box;
+}
+function temperaturesBox(temps) {
+  const box = el(`<div class="subbox"><h4>Temperatures · °C</h4></div>`);
+  if (temps.length === 0) { box.appendChild(el(`<div class="empty">none</div>`)); return box; }
+  const table = el(`<table><tr><th>sensor</th><th class="r">°C</th></tr></table>`);
+  for (const t of temps) {
+    table.appendChild(el(`<tr><td>${escapeHtml(t.name)}</td><td class="r">${muted(fmtFixed(t.temperature_c, 1))}</td></tr>`));
+  }
+  box.appendChild(table); return box;
+}
+function fansBox(fans) {
+  const box = el(`<div class="subbox"><h4>Fans</h4></div>`);
+  if (fans.length === 0) { box.appendChild(el(`<div class="empty">none</div>`)); return box; }
+  const table = el(`<table><tr><th>fan</th><th class="r">rpm</th><th class="r">duty</th><th class="r">target</th></tr></table>`);
+  for (const f of fans) {
+    table.appendChild(el(`<tr>
+      <td>${escapeHtml(f.name)}</td>
+      <td class="r">${muted(fmtNum(f.rpm))}</td>
+      <td class="r">${muted(f.percent != null ? f.percent + " %" : null)}</td>
+      <td class="r">${muted(f.target_percent != null ? f.target_percent + " %" : null)}</td>
+    </tr>`));
+  }
+  box.appendChild(table); return box;
+}
+function powersBox(powers, total) {
+  const box = el(`<div class="subbox"><h4>Power · total ${fmtFixed(total, 1)} W</h4></div>`);
+  if (powers.length === 0) { box.appendChild(el(`<div class="empty">none</div>`)); return box; }
+  const table = el(`<table><tr><th>rail</th><th class="r">V</th><th class="r">A</th><th class="r">W</th></tr></table>`);
+  for (const p of powers) {
+    table.appendChild(el(`<tr>
+      <td>${escapeHtml(p.name)}</td>
+      <td class="r">${muted(fmtFixed(p.voltage_v, 2))}</td>
+      <td class="r">${muted(fmtFixed(p.current_a, 2))}</td>
+      <td class="r">${muted(fmtFixed(p.power_w, 1))}</td>
+    </tr>`));
+  }
+  box.appendChild(table); return box;
+}
+
+function renderSources(sources) {
+  $("#sources-count").textContent = sources.length;
+  const list = $("#sources-list");
+  list.innerHTML = "";
+  if (sources.length === 0) {
+    list.appendChild(el(`<div class="source"><div class="muted">no sources</div></div>`));
+    return;
+  }
+  for (const s of sources) {
+    const card = el(`<div class="source"></div>`);
+    card.appendChild(el(`<h3>${escapeHtml(s.name)}</h3>`));
+    if (s.url) card.appendChild(el(`<p class="url">${escapeHtml(s.url)}</p>`));
+    if (s.difficulty != null) card.appendChild(el(`<p>difficulty: <span class="diff">${fmtNum(s.difficulty)}</span></p>`));
+    list.appendChild(card);
+  }
+}
+
+// --- polling ---
+let pollTimer;
+async function tick() {
+  try {
+    const r = await fetch('/api/state', { cache: 'no-store' });
+    const d = await r.json();
+    if (d.ok) {
+      conn.textContent = "connected";
+      conn.className = "status-pill ok";
+      render(d.snapshot);
+    } else {
+      conn.textContent = "mujina unreachable";
+      conn.className = "status-pill err";
+      $("#updated").textContent = "error: " + (d.error || "unknown");
+    }
+  } catch (e) {
+    conn.textContent = "ui error";
+    conn.className = "status-pill err";
+  } finally {
+    pollTimer = setTimeout(tick, POLL_MS);
+  }
+}
+
+// --- controls ---
+async function setPaused(paused) {
+  const url = paused ? '/api/control/pause' : '/api/control/resume';
+  const status = $("#ctrl-status");
+  status.textContent = "sending…";
+  try {
+    const r = await fetch(url, { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      status.textContent = paused ? "paused" : "resumed";
+      if (d.snapshot) render(d.snapshot);
+    } else {
+      status.textContent = "error: " + (d.error || "unknown");
+    }
+  } catch (e) {
+    status.textContent = "error: " + e.message;
+  }
+  setTimeout(() => status.innerHTML = "&nbsp;", 3000);
+}
+$("#btn-pause").addEventListener('click', () => setPaused(true));
+$("#btn-resume").addEventListener('click', () => setPaused(false));
+
+// --- raw json toggle ---
+$("#raw-toggle").addEventListener('click', () => {
+  const j = $("#raw-json"); j.classList.toggle('open');
+  $("#raw-toggle").textContent = j.classList.contains('open') ? "hide raw" : "show raw /api/v0/miner";
+});
+
+// --- logs (SSE) ---
+function detectSeverity(line) {
+  // tracing-subscriber default formatter starts each line with timestamp then LEVEL.
+  for (const sev of ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"]) {
+    if (line.includes(sev)) return sev;
+  }
+  return "";
+}
+function rerenderLogs() {
+  const box = $("#log-box");
+  const filt = STATE.filter.toLowerCase();
+  let html = "";
+  let shown = 0;
+  for (const l of STATE.lines) {
+    if (filt && !l.text.toLowerCase().includes(filt)) continue;
+    html += `<div class="log-line ${l.sev}">${escapeHtml(l.text)}</div>`;
+    shown++;
+  }
+  box.innerHTML = html;
+  $("#logs-count").textContent = shown.toLocaleString() + (shown !== STATE.lines.length ? " / " + STATE.lines.length.toLocaleString() : "");
+  if (STATE.follow) box.scrollTop = box.scrollHeight;
+}
+function startLogs() {
+  const es = new EventSource('/api/logs');
+  es.onmessage = (ev) => {
+    const text = ev.data;
+    const sev = detectSeverity(text);
+    STATE.lines.push({ sev, text });
+    if (STATE.lines.length > LOG_MAX) STATE.lines.splice(0, STATE.lines.length - LOG_MAX);
+    rerenderLogs();
+  };
+  es.onerror = () => { /* SSE auto-reconnects */ };
+}
+$("#log-filter").addEventListener('input', (e) => { STATE.filter = e.target.value; rerenderLogs(); });
+$("#log-follow").addEventListener('change', (e) => { STATE.follow = e.target.checked; if (STATE.follow) $("#log-box").scrollTop = $("#log-box").scrollHeight; });
+
+// --- info banner ---
+(async () => {
+  try {
+    const r = await fetch('/api/info');
+    const d = await r.json();
+    $("#api-url").textContent = d.mujina_api_url;
+    $("#log-path").textContent = d.log_path;
+    $("#v").textContent = "v" + d.version;
+  } catch (_) {}
+})();
+
+tick();
+startLogs();
+</script>
+</body>
+</html>

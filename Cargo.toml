@@ -1,0 +1,29 @@
+[package]
+name = "mujina-ui"
+version = "0.1.0"
+edition = "2024"
+description = "Full-fledged web UI for mujina-miner: live telemetry, board detail, log streaming, controls."
+license = "GPL-3.0-or-later"
+repository = "https://github.com/RY3T/mujina-ui"
+
+[dependencies]
+anyhow = "1.0"
+axum = "0.7"
+futures = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "charset", "http2"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+tower-http = { version = "0.6", features = ["trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[[bin]]
+name = "mujina-ui"
+path = "src/main.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
