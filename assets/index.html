@@ -55,8 +55,8 @@
   .metric .value .unit { font-size: .85rem; color: var(--muted); margin-left: .2rem; }
   .metric .sub { font-size: .7rem; color: var(--muted); margin-top: .2rem; font-family: var(--mono); }
   .metric.state .value.paused { color: var(--err); }
-  .metric.state .value.heating { color: var(--ok); }
-  .metric.state .value.ready { color: var(--accent); }
+  .metric.state .value.mining  { color: var(--ok); }
+  .metric.state .value.running { color: var(--accent); }
 
   .actions {
     display: flex; gap: .5rem; flex-wrap: wrap; align-items: center;
@@ -160,8 +160,8 @@
       <section>
         <div class="actions">
           <span class="label">controls</span>
-          <button id="btn-resume" class="primary">▶ heat_on</button>
-          <button id="btn-pause"  class="danger">⏸ heat_off</button>
+          <button id="btn-resume" class="primary">▶ resume</button>
+          <button id="btn-pause"  class="danger">⏸ pause</button>
           <span class="label" id="ctrl-status">&nbsp;</span>
         </div>
       </section>
@@ -247,9 +247,11 @@ function escapeHtml(s) { return String(s).replace(/[&<>'"]/g, c => ({'&':'&amp;'
 
 // --- state render ---
 function deriveStateLabel(snap) {
+  // Three states: paused (operator pause), mining (active with hashrate),
+  // and running (not paused but no hashrate yet -- startup / ramp / chain idle).
   if (snap?.paused) return ["paused", "paused"];
-  if ((snap?.hashrate||0) > 0) return ["heating", "heating"];
-  return ["ready", "ready"];
+  if ((snap?.hashrate||0) > 0) return ["mining", "mining"];
+  return ["running", "running"];
 }
 
 function render(snap) {
