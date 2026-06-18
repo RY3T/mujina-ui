@@ -27,8 +27,14 @@ if [ -x /etc/init.d/mujina-ui ]; then
     /etc/init.d/mujina-ui disable 2>/dev/null || true
     rm -f /etc/init.d/mujina-ui
 fi
-# Remove the sysvinit-mode autostart hook from /etc/rc.local (no-op
-# under procd, which uses its own enable/disable).
+# Remove sysvinit rc.d autostart symlinks (no-op under procd, which
+# uses its own enable/disable).
+for d in /etc/rc0.d /etc/rc1.d /etc/rc2.d /etc/rc3.d /etc/rc4.d /etc/rc5.d /etc/rc6.d; do
+    rm -f "$d"/S92mujina-ui "$d"/K10mujina-ui \
+          "$d"/disabled.S92mujina-ui "$d"/disabled.K10mujina-ui 2>/dev/null || true
+done
+# Migration: earlier versions added an /etc/rc.local entry; strip it
+# too, in case the system was first installed before the rc.d switch.
 if [ -f /etc/rc.local ] && grep -q 'mujina-ui start' /etc/rc.local; then
     grep -v 'mujina-ui start' /etc/rc.local > /etc/rc.local.tmp
     mv /etc/rc.local.tmp /etc/rc.local
