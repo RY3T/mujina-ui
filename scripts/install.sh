@@ -166,9 +166,17 @@ EOF
 sysvinit)
     cat > /etc/init.d/mujina-ui <<'EOF'
 #!/bin/sh
-# Minimal sysvinit-compatible service for mujina-ui. Used on
-# stock PetaLinux / Yocto firmwares without procd. Logs go to
-# /var/log/mujina-ui.log; rotate it yourself if you care.
+### BEGIN INIT INFO
+# Provides:          mujina-ui
+# Required-Start:    networking
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: mujina-ui (web dashboard for mujina-miner)
+### END INIT INFO
+
+# Non-login ssh sessions and rc.d don't include /sbin in PATH.
+PATH=/sbin:/usr/sbin:/bin:/usr/bin:/usr/local/sbin:/usr/local/bin
 
 PROG=/usr/bin/mujina-ui
 PIDFILE=/var/run/mujina-ui.pid
@@ -215,32 +223,32 @@ case "${1:-}" in
     stop)    stop ;;
     restart) stop; sleep 1; start ;;
     status)  status ;;
-    enable|disable) : ;;  # no-op on plain sysvinit; see autostart below
+    enable|disable) : ;;  # autostart wiring is handled by install.sh
     *) echo "Usage: $0 {start|stop|restart|status}" >&2; exit 1 ;;
 esac
 EOF
-    # Autostart on boot. /etc/rc.local is the most portable hook
-    # available on minimal Yocto/PetaLinux images that lack a real
-    # LSB chkconfig setup.
-    if [ -f /etc/rc.local ]; then
-        if ! grep -q 'mujina-ui start' /etc/rc.local; then
-            # Insert before any "exit 0" trailer.
-            tmp=$(mktemp)
-            awk '/^exit 0/ && !done { print "/etc/init.d/mujina-ui start"; done=1 } { print }' \
-                /etc/rc.local > "$tmp"
-            if ! grep -q 'mujina-ui start' "$tmp"; then
-                # No "exit 0" line; just append.
-                printf '%s\n' "/etc/init.d/mujina-ui start" >> "$tmp"
-            fi
-            mv "$tmp" /etc/rc.local
-            chmod 0755 /etc/rc.local
-        fi
-    else
-        cat > /etc/rc.local <<'RCEOF'
-#!/bin/sh -e
-/etc/init.d/mujina-ui start
-exit 0
-RCEOF
+    # Autostart on boot. Place rc.d symlinks at S92 (after mujina-init
+    # at S90 and mujina-ry3t-mqtt-init at S91, when those exist) and
+    # K10 for clean shutdown. This is what stock LuxOS / PetaLinux
+    # actually executes; /etc/rc.local is not in their boot path on
+    # this rootfs.
+    for d in /etc/rc2.d /etc/rc3.d /etc/rc4.d /etc/rc5.d; do
+        [ -d "$d" ] || continue
+        rm -f "$d/S92mujina-ui" "$d/disabled.S92mujina-ui"
+        ln -sf ../init.d/mujina-ui "$d/S92mujina-ui"
+    done
+    for d in /etc/rc0.d /etc/rc1.d /etc/rc6.d; do
+        [ -d "$d" ] || continue
+        rm -f "$d/K10mujina-ui" "$d/disabled.K10mujina-ui"
+        ln -sf ../init.d/mujina-ui "$d/K10mujina-ui"
+    done
+    # Migration: earlier versions of this installer added an
+    # /etc/rc.local entry; remove it now that the rc.d symlinks are in
+    # place. Leaving it would just run start a second time at boot
+    # (harmless) but it's cleaner to take it out.
+    if [ -f /etc/rc.local ] && grep -q 'mujina-ui start' /etc/rc.local; then
+        grep -v 'mujina-ui start' /etc/rc.local > /etc/rc.local.tmp
+        mv /etc/rc.local.tmp /etc/rc.local
         chmod 0755 /etc/rc.local
     fi
     ;;
