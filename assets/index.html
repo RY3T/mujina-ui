@@ -257,9 +257,17 @@ function render(snap) {
   stateEl.className = "value " + cls;
   $("#state-sub").innerHTML = snap?.paused ? "PATCH /miner paused" : "&nbsp;";
 
-  const [hr, unit] = fmtHashrate(snap?.hashrate);
+  // The API's top-level `hashrate` is a 5-minute average; the responsive
+  // 1-minute view is per-thread (`hashrate_1min`), summed here. Show the live
+  // 1-min as the big number (what you watch during a power dial) with the
+  // 5-min average alongside it.
+  const hr1min = (snap?.boards || []).reduce(
+    (s, b) => s + (b.threads || []).reduce((a, th) => a + (th.hashrate_1min || 0), 0), 0);
+  const [hr, unit] = fmtHashrate(hr1min);
+  const [hr5, u5] = fmtHashrate(snap?.hashrate);
   $("#hashrate").innerHTML = `${hr}<span class="unit">${unit}</span>`;
-  $("#hashrate-sub").textContent = snap?.hashrate ? `${snap.hashrate.toLocaleString()} H/s` : "";
+  $("#hashrate-sub").textContent = snap?.hashrate
+    ? `1-min live · 5-min avg ${hr5} ${u5}` : "";
 
   $("#uptime").textContent = fmtDuration(snap?.uptime_secs);
   $("#uptime-sub").textContent = snap?.uptime_secs != null ? `${snap.uptime_secs} s` : "";
@@ -326,11 +334,16 @@ function threadsBox(threads, total) {
   const [hr, unit] = fmtHashrate(total);
   const box = el(`<div class="subbox"><h4>Threads · total ${hr} ${unit}</h4></div>`);
   if (threads.length === 0) { box.appendChild(el(`<div class="empty">no threads</div>`)); return box; }
-  const table = el(`<table><tr><th>name</th><th class="r">hashrate</th><th class="r">active</th></tr></table>`);
+  const table = el(`<table><tr><th>name</th><th class="r">hashrate</th><th class="r">chips</th><th class="r">active</th></tr></table>`);
   for (const t of threads) {
     const [v, u] = fmtHashrate(t.hashrate);
     const active = t.is_active ? "✓" : `<span class="muted">·</span>`;
-    table.appendChild(el(`<tr><td>${escapeHtml(t.name)}</td><td class="r">${v} <span class="muted">${u}</span></td><td class="r">${active}</td></tr>`));
+    // Chips producing a nonce within mujina's recent census window vs expected.
+    // A count below expected means chips have gone quiet on that board.
+    const chips = (t.expected_chips > 0)
+      ? `${t.active_chips}/${t.expected_chips}${t.active_chips < t.expected_chips ? " ⚠" : ""}`
+      : `<span class="muted">—</span>`;
+    table.appendChild(el(`<tr><td>${escapeHtml(t.name)}</td><td class="r">${v} <span class="muted">${u}</span></td><td class="r">${chips}</td><td class="r">${active}</td></tr>`));
   }
   box.appendChild(table); return box;
 }
