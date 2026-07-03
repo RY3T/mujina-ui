@@ -257,13 +257,11 @@ function render(snap) {
   stateEl.className = "value " + cls;
   $("#state-sub").innerHTML = snap?.paused ? "PATCH /miner paused" : "&nbsp;";
 
-  // The API's top-level `hashrate` is a 5-minute average; the responsive
-  // 1-minute view is per-thread (`hashrate_1min`), summed here. Show the live
+  // Top-level `hashrate` is a 5-minute average; `hashrate_1min` is the
+  // responsive 1-minute aggregate (both computed by mujina). Show the live
   // 1-min as the big number (what you watch during a power dial) with the
   // 5-min average alongside it.
-  const hr1min = (snap?.boards || []).reduce(
-    (s, b) => s + (b.threads || []).reduce((a, th) => a + (th.hashrate_1min || 0), 0), 0);
-  const [hr, unit] = fmtHashrate(hr1min);
+  const [hr, unit] = fmtHashrate(snap?.hashrate_1min);
   const [hr5, u5] = fmtHashrate(snap?.hashrate);
   $("#hashrate").innerHTML = `${hr}<span class="unit">${unit}</span>`;
   $("#hashrate-sub").textContent = snap?.hashrate
