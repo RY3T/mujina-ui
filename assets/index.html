@@ -332,16 +332,16 @@ function threadsBox(threads, total) {
   const [hr, unit] = fmtHashrate(total);
   const box = el(`<div class="subbox"><h4>Threads · total ${hr} ${unit}</h4></div>`);
   if (threads.length === 0) { box.appendChild(el(`<div class="empty">no threads</div>`)); return box; }
-  const table = el(`<table><tr><th>name</th><th class="r">hashrate</th><th class="r">chips</th><th class="r">active</th></tr></table>`);
+  const table = el(`<table><tr><th>name</th><th class="r">hashrate</th><th class="r">freq</th><th class="r">active</th></tr></table>`);
   for (const t of threads) {
     const [v, u] = fmtHashrate(t.hashrate);
     const active = t.is_active ? "✓" : `<span class="muted">·</span>`;
-    // Chips producing a nonce within mujina's recent census window vs expected.
-    // A count below expected means chips have gone quiet on that board.
-    const chips = (t.expected_chips > 0)
-      ? `${t.active_chips}/${t.expected_chips}${t.active_chips < t.expected_chips ? " ⚠" : ""}`
+    // Live chip frequency (MHz) applied to this hashboard — the operating point
+    // of the power dial.
+    const freq = (t.frequency_mhz > 0)
+      ? `${Math.round(t.frequency_mhz)} <span class="muted">MHz</span>`
       : `<span class="muted">—</span>`;
-    table.appendChild(el(`<tr><td>${escapeHtml(t.name)}</td><td class="r">${v} <span class="muted">${u}</span></td><td class="r">${chips}</td><td class="r">${active}</td></tr>`));
+    table.appendChild(el(`<tr><td>${escapeHtml(t.name)}</td><td class="r">${v} <span class="muted">${u}</span></td><td class="r">${freq}</td><td class="r">${active}</td></tr>`));
   }
   box.appendChild(table); return box;
 }
