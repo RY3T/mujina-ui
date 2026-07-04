@@ -268,7 +268,7 @@ function render(snap) {
   const [hr5, u5] = fmtHashrate(snap?.hashrate);
   $("#hashrate").innerHTML = `${hr}<span class="unit">${unit}</span>`;
   $("#hashrate-sub").textContent = snap?.hashrate
-    ? `1-min live · 5-min avg ${hr5} ${u5}` : "";
+    ? `5s live · 5-min avg ${hr5} ${u5}` : "";
 
   $("#uptime").textContent = fmtDuration(snap?.uptime_secs);
   $("#uptime-sub").textContent = snap?.uptime_secs != null ? `${snap.uptime_secs} s` : "";
@@ -315,8 +315,9 @@ function renderBoards(boards) {
     </h3>`);
     card.appendChild(h);
 
-    // Aggregate per-board hashrate (sum across threads)
-    const totalHr = (b.threads || []).reduce((acc, t) => acc + (t.hashrate || 0), 0);
+    // Aggregate per-board hashrate (sum across threads) — 1-minute, to match the
+    // 1-minute primary shown per thread row.
+    const totalHr = (b.threads || []).reduce((acc, t) => acc + (t.hashrate_1min || 0), 0);
     const totalPower = (b.powers || []).reduce((acc, p) => acc + (p.power_w || 0), 0);
 
     const sub = document.createElement('div');
@@ -336,9 +337,12 @@ function threadsBox(threads, total) {
   // `wide` gives the Threads box extra grid width — it has the most columns.
   const box = el(`<div class="subbox wide"><h4>Threads · total ${hr} ${unit}</h4></div>`);
   if (threads.length === 0) { box.appendChild(el(`<div class="empty">no threads</div>`)); return box; }
-  const table = el(`<table><tr><th>name</th><th class="r">hashrate</th><th class="r">freq</th><th class="r">chips</th><th class="r">active</th></tr></table>`);
+  const table = el(`<table><tr><th>name</th><th class="r">hashrate <span class="muted">5s</span></th><th class="r">freq</th><th class="r">chips</th><th class="r">active</th></tr></table>`);
   for (const t of threads) {
-    const [v, u] = fmtHashrate(t.hashrate);
+    // Primary is the responsive 1-minute hashrate (matches the headline card);
+    // the 5-minute average trails as a muted secondary so both are visible.
+    const [v, u] = fmtHashrate(t.hashrate_1min);
+    const [v5, u5] = fmtHashrate(t.hashrate);
     const active = t.is_active ? "✓" : `<span class="muted">·</span>`;
     // Live chip frequency (MHz) applied to this hashboard — the operating point
     // of the power dial.
@@ -350,7 +354,7 @@ function threadsBox(threads, total) {
     const chips = (t.expected_chips > 0)
       ? `${t.active_chips}/${t.expected_chips}${t.active_chips < t.expected_chips ? " ⚠" : ""}`
       : `<span class="muted">—</span>`;
-    table.appendChild(el(`<tr><td>${escapeHtml(t.name)}</td><td class="r">${v} <span class="muted">${u}</span></td><td class="r">${freq}</td><td class="r">${chips}</td><td class="r">${active}</td></tr>`));
+    table.appendChild(el(`<tr><td>${escapeHtml(t.name)}</td><td class="r">${v} <span class="muted">${u} · 5m ${v5}</span></td><td class="r">${freq}</td><td class="r">${chips}</td><td class="r">${active}</td></tr>`));
   }
   box.appendChild(table); return box;
 }
