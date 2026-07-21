@@ -10,6 +10,14 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use serde_json::Value;
 
+/// Default per-request timeout — snappy, for the frequent GET /miner polls.
+const DEFAULT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// Pause/resume timeout. A resume CYCLES THE PSU RAIL and re-inits the chains,
+/// which takes ~10 s (and mujina allows the PATCH up to 300 s), far longer than
+/// the poll timeout. Without a longer bound here the client gives up at 5 s and
+/// the UI reports the resume "failed" even though it completes moments later.
+const CONTROL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
 pub struct Client {
     http: reqwest::Client,
     base: String,
@@ -19,7 +27,7 @@ impl Client {
     pub fn new(base: String) -> Self {
         Self {
             http: reqwest::Client::builder()
-                .timeout(std::time::Duration::from_secs(5))
+                .timeout(DEFAULT_TIMEOUT)
                 .build()
                 .expect("reqwest builder"),
             base,
@@ -47,6 +55,9 @@ impl Client {
         let r = self
             .http
             .patch(&url)
+            // Override the short poll timeout — a resume can legitimately block
+            // ~10 s (rail cycle + re-init) and must not be reported as failed.
+            .timeout(CONTROL_TIMEOUT)
             .json(&Body { paused })
             .send()
             .await
