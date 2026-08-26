@@ -382,15 +382,20 @@ function fansBox(fans) {
   box.appendChild(table); return box;
 }
 function powersBox(powers, total) {
-  const box = el(`<div class="subbox"><h4>Power · total ${fmtFixed(total, 1)} W</h4></div>`);
+  // Only claim a total when at least one rail actually reports watts. The
+  // APW12 reports neither current nor power over i2c, so summing nulls to
+  // "0.0 W" showed a measurement that does not exist.
+  const anyPower = powers.some(p => p.power_w != null);
+  const box = el(`<div class="subbox"><h4>Power${anyPower ? ` · total ${fmtFixed(total, 1)} W` : ""}</h4></div>`);
   if (powers.length === 0) { box.appendChild(el(`<div class="empty">none</div>`)); return box; }
-  const table = el(`<table><tr><th>rail</th><th class="r">V</th><th class="r">A</th><th class="r">W</th></tr></table>`);
+  const table = el(`<table><tr><th>rail</th><th class="r">V</th><th class="r">A</th><th class="r">W</th><th class="r">&deg;C</th></tr></table>`);
   for (const p of powers) {
     table.appendChild(el(`<tr>
       <td>${escapeHtml(p.name)}</td>
       <td class="r">${muted(fmtFixed(p.voltage_v, 2))}</td>
       <td class="r">${muted(fmtFixed(p.current_a, 2))}</td>
       <td class="r">${muted(fmtFixed(p.power_w, 1))}</td>
+      <td class="r">${muted(fmtFixed(p.temperature_c, 0))}</td>
     </tr>`));
   }
   box.appendChild(table); return box;
