@@ -18,6 +18,7 @@ async fn main() -> Result<()> {
 
     let cfg = Arc::new(config::Config::from_env());
     tracing::info!(
+        version = env!("MUJINA_UI_VERSION"),
         listen = %cfg.listen,
         api = %cfg.mujina_api_url,
         log_path = %cfg.log_path,

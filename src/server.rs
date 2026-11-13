@@ -70,7 +70,7 @@ async fn get_info(State(s): State<AppState>) -> Json<Value> {
     Json(json!({
         "mujina_api_url": s.cfg.mujina_api_url,
         "log_path": s.cfg.log_path,
-        "version": env!("CARGO_PKG_VERSION"),
+        "version": env!("MUJINA_UI_VERSION"),
     }))
 }
 

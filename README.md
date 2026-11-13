@@ -116,3 +116,14 @@ Open <http://&lt;miner-ip&gt;:7782> in a browser.
 ## License
 
 GPL-3.0-or-later, matching mujina.
+
+## Versions and releases
+
+Versioned `vMAJOR.MINOR.PATCH`, released only from a clean `main` with
+`scripts/release.sh vX.Y.Z` (tags, tests, builds aarch64-musl, publishes
+`mujina-ui-aarch64` + `SHA256SUMS` on
+[the releases page](https://github.com/RY3T/mujina-ui/releases)). The binary
+embeds `git describe --tags --match 'v*' --dirty`: it is logged at startup and
+returned as `version` by `GET /api/info`. Deploy only release binaries; a
+`-dirty` or `-N-gHASH` version is not one.
+
